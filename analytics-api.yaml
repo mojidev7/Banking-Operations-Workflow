@@ -1,0 +1,541 @@
+openapi: 3.0.3
+info:
+  title: Enterprise Banking Analytics API
+  description: API for risk assessment, compliance, and analytics capabilities
+  version: 1.1.0
+  contact:
+    name: API Support
+    url: https://developer.example-bank.com/support
+    email: api-support@example-bank.com
+servers:
+  - url: https://api.example-bank.com/analytics/v1
+    description: Production server
+  - url: https://sandbox.example-bank.com/analytics/v1
+    description: Sandbox environment for testing
+
+tags:
+  - name: Risk
+    description: Risk assessment operations
+  - name: Compliance
+    description: Compliance and regulatory operations
+  - name: Metrics
+    description: Analytics and metrics operations
+
+paths:
+  /risk/transaction:
+    post:
+      tags:
+        - Risk
+      summary: Assess risk for a financial transaction
+      operationId: assessTransactionRisk
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionIdHeader'
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - $ref: '#/components/parameters/UserIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sourceAccountId
+                - destinationAccountId
+                - amount
+                - currency
+              properties:
+                sourceAccountId:
+                  type: string
+                  example: "acc_12345"
+                sourceAccountDetails:
+                  type: object
+                  additionalProperties: true
+                destinationAccountId:
+                  type: string
+                  example: "acc_56789"
+                destinationDetails:
+                  type: object
+                  additionalProperties: true
+                amount:
+                  type: number
+                  format: double
+                  example: 10000.00
+                currency:
+                  type: string
+                  example: "USD"
+                paymentType:
+                  type: string
+                  enum: ["INTERNAL", "DOMESTIC", "INTERNATIONAL", "WIRE", "ACH"]
+                  example: "INTERNATIONAL"
+                transactionContext:
+                  type: object
+                  properties:
+                    ipAddress:
+                      type: string
+                      format: ipv4
+                      example: "192.168.1.1"
+                    deviceFingerprint:
+                      type: string
+                      example: "d41d8cd98f00b204e9800998ecf8427e"
+                    userLocation:
+                      type: object
+                      properties:
+                        country:
+                          type: string
+                          example: "US"
+                        region:
+                          type: string
+                          example: "CA"
+                        city:
+                          type: string
+                          example: "San Francisco"
+                    timestamp:
+                      type: string
+                      format: date-time
+                      example: "2023-10-15T14:30:00Z"
+      responses:
+        '200':
+          description: Risk assessment results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  assessmentId:
+                    type: string
+                    example: "risk_12345"
+                  riskScore:
+                    type: number
+                    format: integer
+                    minimum: 0
+                    maximum: 100
+                    example: 35
+                  riskLevel:
+                    type: string
+                    enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+                    example: "LOW"
+                  isApproved:
+                    type: boolean
+                    example: true
+                  riskFactors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        factor:
+                          type: string
+                          example: "UNUSUAL_LOCATION"
+                        impact:
+                          type: number
+                          format: integer
+                          example: 10
+                        description:
+                          type: string
+                          example: "Transaction initiated from unusual location"
+                  recommendations:
+                    type: array
+                    items:
+                      type: string
+                    example: ["Proceed with transaction"]
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2023-10-15T14:30:05Z"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /risk/due-diligence:
+    post:
+      tags:
+        - Compliance
+      summary: Perform enhanced due diligence for high-risk transactions
+      operationId: performEnhancedDueDiligence
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - transactionDetails
+                - riskAssessment
+              properties:
+                transactionDetails:
+                  type: object
+                  properties:
+                    sourceAccountId:
+                      type: string
+                      example: "acc_12345"
+                    destinationAccountId:
+                      type: string
+                      example: "acc_56789"
+                    amount:
+                      type: number
+                      format: double
+                      example: 10000.00
+                    currency:
+                      type: string
+                      example: "USD"
+                    paymentType:
+                      type: string
+                      enum: ["INTERNAL", "DOMESTIC", "INTERNATIONAL", "WIRE", "ACH"]
+                      example: "INTERNATIONAL"
+                riskAssessment:
+                  type: object
+                  additionalProperties: true
+                additionalVerification:
+                  type: object
+                  properties:
+                    purpose:
+                      type: string
+                      example: "Payment for consulting services"
+                    beneficiaryRelationship:
+                      type: string
+                      example: "SERVICE_PROVIDER"
+                    transactionFrequency:
+                      type: string
+                      enum: ["ONE_TIME", "RECURRING", "IRREGULAR"]
+                      example: "RECURRING"
+                    documentationUrls:
+                      type: array
+                      items:
+                        type: string
+                      example: ["https://example.com/documents/invoice.pdf"]
+      responses:
+        '200':
+          description: Enhanced due diligence results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  verificationId:
+                    type: string
+                    example: "edd_12345"
+                  isApproved:
+                    type: boolean
+                    example: true
+                  decision:
+                    type: string
+                    enum: ["APPROVED", "REJECTED", "MANUAL_REVIEW_REQUIRED"]
+                    example: "APPROVED"
+                  additionalRequirements:
+                    type: array
+                    items:
+                      type: string
+                    example: []
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2023-10-15T14:35:00Z"
+                  expiresAt:
+                    type: string
+                    format: date-time
+                    example: "2023-10-16T14:35:00Z"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /compliance/screening:
+    post:
+      tags:
+        - Compliance
+      summary: Screen transaction against regulatory requirements
+      operationId: complianceScreening
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - paymentDetails
+              properties:
+                paymentDetails:
+                  type: object
+                  properties:
+                    sourceAccountOwner:
+                      $ref: '#/components/schemas/PartyInformation'
+                    destinationDetails:
+                      $ref: '#/components/schemas/PartyInformation'
+                    amount:
+                      type: number
+                      format: double
+                      example: 10000.00
+                    currency:
+                      type: string
+                      example: "USD"
+                    paymentType:
+                      type: string
+                      example: "INTERNATIONAL"
+                    purpose:
+                      type: string
+                      example: "Payment for consulting services"
+                enhancedDueDiligenceId:
+                  type: string
+                  example: "edd_12345"
+      responses:
+        '200':
+          description: Compliance screening results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  complianceId:
+                    type: string
+                    example: "compl_12345"
+                  complianceStatus:
+                    type: string
+                    enum: ["APPROVED", "REJECTED", "MANUAL_REVIEW"]
+                    example: "APPROVED"
+                  screeningResults:
+                    type: object
+                    properties:
+                      sanctionsCheck:
+                        type: boolean
+                        example: false
+                      pepsCheck:
+                        type: boolean
+                        example: false
+                      amlCheck:
+                        type: boolean
+                        example: false
+                      regulatoryReporting:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            reportType:
+                              type: string
+                              example: "NONE"
+                            requiredBy:
+                              type: string
+                              example: ""
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2023-10-15T14:40:00Z"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /metrics/transaction:
+    post:
+      tags:
+        - Metrics
+      summary: Record transaction metrics for analytics
+      operationId: recordTransactionMetrics
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - transactionId
+                - transactionType
+                - amount
+                - currency
+              properties:
+                transactionId:
+                  type: string
+                  example: "tx_98765"
+                transactionType:
+                  type: string
+                  example: "ENTERPRISE_PAYMENT"
+                amount:
+                  type: number
+                  format: double
+                  example: 10000.00
+                currency:
+                  type: string
+                  example: "USD"
+                sourceAccountId:
+                  type: string
+                  example: "acc_12345"
+                destinationAccountId:
+                  type: string
+                  example: "acc_56789"
+                status:
+                  type: string
+                  example: "COMPLETED"
+                riskScore:
+                  type: number
+                  format: integer
+                  example: 35
+                processingTime:
+                  type: number
+                  format: integer
+                  example: 5320
+                userJourney:
+                  type: object
+                  properties:
+                    initiatedBy:
+                      type: string
+                      example: "usr_9876543"
+                    deviceType:
+                      type: string
+                      example: "DESKTOP"
+                    channel:
+                      type: string
+                      example: "WEB_PORTAL"
+                    sessionDuration:
+                      type: number
+                      format: integer
+                      example: 340
+      responses:
+        '200':
+          description: Metrics recorded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  metricId:
+                    type: string
+                    example: "metric_12345"
+        '202':
+          description: Metrics accepted for processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  status:
+                    type: string
+                    example: "PROCESSING"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    PartyInformation:
+      type: object
+      properties:
+        partyId:
+          type: string
+          example: "party_12345"
+        name:
+          type: string
+          example: "Acme Corporation"
+        type:
+          type: string
+          enum: ["INDIVIDUAL", "CORPORATION", "PARTNERSHIP", "TRUST", "GOVERNMENT"]
+          example: "CORPORATION"
+        country:
+          type: string
+          example: "US"
+        identificationNumber:
+          type: string
+          example: "XX-XXXXXXX"
+        address:
+          type: object
+          properties:
+            street:
+              type: string
+              example: "123 Main St"
+            city:
+              type: string
+              example: "San Francisco"
+            region:
+              type: string
+              example: "CA"
+            postalCode:
+              type: string
+              example: "94105"
+            country:
+              type: string
+              example: "US"
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          example: "VALIDATION_ERROR"
+        message:
+          type: string
+          example: "One or more validation errors occurred"
+        details:
+          type: object
+          additionalProperties: true
+        requestId:
+          type: string
+          example: "req_abcdef123456"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2023-10-15T14:30:00Z"
+
+  parameters:
+    RequestIdHeader:
+      name: X-Request-ID
+      in: header
+      description: Unique identifier for request tracing
+      required: false
+      schema:
+        type: string
+
+    SessionIdHeader:
+      name: X-Session-ID
+      in: header
+      description: Active session identifier
+      required: true
+      schema:
+        type: string
+        
+    UserIdHeader:
+      name: X-User-ID
+      in: header
+      description: User identifier
+      required: false
+      schema:
+        type: string
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
