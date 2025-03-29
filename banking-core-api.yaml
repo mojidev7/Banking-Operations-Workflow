@@ -1,0 +1,528 @@
+openapi: 3.0.3
+info:
+  title: Enterprise Banking Core API
+  description: API for core banking operations including authentication, account management, and user operations
+  version: 1.2.0
+  contact:
+    name: API Support
+    url: https://developer.example-bank.com/support
+    email: api-support@example-bank.com
+servers:
+  - url: https://api.example-bank.com/v1
+    description: Production server
+  - url: https://sandbox.example-bank.com/v1
+    description: Sandbox environment for testing
+
+tags:
+  - name: Authentication
+    description: Authentication and authorization operations
+  - name: Accounts
+    description: Account management operations
+  - name: Users
+    description: User management operations
+  - name: Notifications
+    description: Notification and alerts operations
+
+paths:
+  /auth/client:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate an enterprise client
+      operationId: authenticateClient
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - clientId
+                - clientSecret
+              properties:
+                clientId:
+                  type: string
+                  example: "ent_client_12345"
+                clientSecret:
+                  type: string
+                  format: password
+                  example: "client-secret-value"
+                applicationContext:
+                  type: string
+                  example: "PAYMENT_PROCESSING"
+      responses:
+        '200':
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  tokenType:
+                    type: string
+                    example: "Bearer"
+                  expiresIn:
+                    type: integer
+                    example: 3600
+                  sessionId:
+                    type: string
+                    example: "sess_12345abcdef"
+                  permissions:
+                    type: array
+                    items:
+                      type: string
+                    example: ["PAYMENT_INITIATE", "ACCOUNT_READ", "USER_VALIDATE"]
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many requests
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Time in seconds to wait before retrying
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/user/mfa:
+    post:
+      tags:
+        - Authentication
+      summary: Validate user with multi-factor authentication
+      operationId: validateUserMFA
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+                - mfaToken
+              properties:
+                userId:
+                  type: string
+                  example: "usr_9876543"
+                mfaToken:
+                  type: string
+                  example: "123456"
+                deviceFingerprint:
+                  type: string
+                  example: "d41d8cd98f00b204e9800998ecf8427e"
+                ipAddress:
+                  type: string
+                  format: ipv4
+                  example: "192.168.1.1"
+      responses:
+        '200':
+          description: User authenticated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userAccessToken:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  tokenType:
+                    type: string
+                    example: "Bearer"
+                  expiresIn:
+                    type: integer
+                    example: 1800
+                  userPermissions:
+                    type: array
+                    items:
+                      type: string
+                    example: ["TRANSFER_INITIATE", "ACCOUNT_OWN_VIEW"]
+                  authenticationLevel:
+                    type: string
+                    enum: ["STANDARD", "ENHANCED", "HIGH_SECURITY"]
+                    example: "ENHANCED"
+        '401':
+          description: Invalid MFA token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Access forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /accounts/{accountId}/validation:
+    post:
+      tags:
+        - Accounts
+      summary: Validate account status, permissions and available balance
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "acc_12345"
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - $ref: '#/components/parameters/SessionIdHeader'
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - requiredBalance
+                - transactionType
+              properties:
+                requiredBalance:
+                  type: number
+                  format: double
+                  example: 1000.00
+                transactionType:
+                  type: string
+                  enum: ["DEBIT", "CREDIT", "INQUIRY"]
+                  example: "DEBIT"
+                currency:
+                  type: string
+                  example: "USD"
+      responses:
+        '200':
+          description: Account validation results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accountId:
+                    type: string
+                    example: "acc_12345"
+                  accountStatus:
+                    type: string
+                    enum: ["ACTIVE", "DORMANT", "BLOCKED", "CLOSED"]
+                    example: "ACTIVE"
+                  accountType:
+                    type: string
+                    enum: ["CHECKING", "SAVINGS", "BUSINESS", "INVESTMENT"]
+                    example: "BUSINESS"
+                  hasSufficientFunds:
+                    type: boolean
+                    example: true
+                  availableBalance:
+                    type: number
+                    format: double
+                    example: 25000.00
+                  currency:
+                    type: string
+                    example: "USD"
+                  userHasPermission:
+                    type: boolean
+                    example: true
+                  transactionLimits:
+                    type: object
+                    properties:
+                      dailyLimit:
+                        type: number
+                        format: double
+                        example: 50000.00
+                      remainingDailyLimit:
+                        type: number
+                        format: double
+                        example: 35000.00
+                      transactionLimit:
+                        type: number
+                        format: double
+                        example: 25000.00
+                  ownershipDetails:
+                    $ref: '#/components/schemas/OwnershipDetails'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /transfer/destination/validate:
+    post:
+      tags:
+        - Accounts
+      summary: Validate a transfer destination
+      operationId: validateTransferDestination
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - $ref: '#/components/parameters/SessionIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+                - paymentType
+              properties:
+                accountId:
+                  type: string
+                  example: "acc_56789"
+                bankCode:
+                  type: string
+                  example: "EXBKUS33"
+                paymentType:
+                  type: string
+                  enum: ["INTERNAL", "DOMESTIC", "INTERNATIONAL", "WIRE", "ACH"]
+                  example: "WIRE"
+                currency:
+                  type: string
+                  example: "EUR"
+      responses:
+        '200':
+          description: Destination validation results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isValid:
+                    type: boolean
+                    example: true
+                  accountName:
+                    type: string
+                    example: "Acme Corporation"
+                  bankName:
+                    type: string
+                    example: "Example International Bank"
+                  routingInformation:
+                    type: object
+                    properties:
+                      routingNumber:
+                        type: string
+                        example: "021000021"
+                      swiftCode:
+                        type: string
+                        example: "EXBKUS33"
+                      correspondentBank:
+                        type: string
+                        example: "Intermediate Bank Corp"
+                  transferFees:
+                    type: object
+                    properties:
+                      amount:
+                        type: number
+                        format: double
+                        example: 25.00
+                      currency:
+                        type: string
+                        example: "USD"
+                      feeType:
+                        type: string
+                        enum: ["FIXED", "PERCENTAGE", "TIERED"]
+                        example: "FIXED"
+                  exchangeRates:
+                    type: object
+                    properties:
+                      fromCurrency:
+                        type: string
+                        example: "USD"
+                      toCurrency:
+                        type: string
+                        example: "EUR"
+                      rate:
+                        type: number
+                        format: double
+                        example: 0.93
+                      expiresAt:
+                        type: string
+                        format: date-time
+                        example: "2023-12-31T23:59:59Z"
+                  validationDetails:
+                    type: object
+                    properties:
+                      nameMatchConfidence:
+                        type: number
+                        format: float
+                        example: 0.98
+                      isVerified:
+                        type: boolean
+                        example: true
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /notifications/transaction:
+    post:
+      tags:
+        - Notifications
+      summary: Send transaction-related notifications
+      operationId: sendTransactionNotifications
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - transactionId
+                - notificationTemplateId
+              properties:
+                transactionId:
+                  type: string
+                  example: "tx_98765"
+                transactionDetails:
+                  type: object
+                  additionalProperties: true
+                notificationChannels:
+                  type: array
+                  items:
+                    type: string
+                    enum: ["EMAIL", "SMS", "PUSH", "IN_APP"]
+                  example: ["EMAIL", "SMS"]
+                notificationTemplateId:
+                  type: string
+                  example: "ENTERPRISE_PAYMENT_CONFIRMATION"
+                recipients:
+                  type: object
+                  properties:
+                    userIds:
+                      type: array
+                      items:
+                        type: string
+                      example: ["usr_1234", "usr_5678"]
+                    externalEmails:
+                      type: array
+                      items:
+                        type: string
+                        format: email
+                      example: ["recipient@example.com"]
+      responses:
+        '202':
+          description: Notifications queued for delivery
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notificationIds:
+                    type: array
+                    items:
+                      type: string
+                    example: ["notif_123", "notif_456"]
+                  status:
+                    type: string
+                    enum: ["QUEUED", "PARTIAL_DELIVERY"]
+                    example: "QUEUED"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          example: "UNAUTHORIZED"
+        message:
+          type: string
+          example: "Invalid authentication credentials"
+        details:
+          type: object
+          additionalProperties: true
+        requestId:
+          type: string
+          example: "req_abcdef123456"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2023-10-15T14:30:00Z"
+
+    OwnershipDetails:
+      type: object
+      properties:
+        ownerId:
+          type: string
+          example: "cust_12345"
+        ownerName:
+          type: string
+          example: "Acme Corporation"
+        ownerType:
+          type: string
+          enum: ["INDIVIDUAL", "CORPORATION", "PARTNERSHIP", "TRUST"]
+          example: "CORPORATION"
+        taxId:
+          type: string
+          example: "XX-XXXXXXX"
+        ownershipPercentage:
+          type: number
+          format: float
+          example: 100.0
+        relationshipManagers:
+          type: array
+          items:
+            type: string
+          example: ["rm_7890"]
+
+  parameters:
+    RequestIdHeader:
+      name: X-Request-ID
+      in: header
+      description: Unique identifier for request tracing
+      required: false
+      schema:
+        type: string
+
+    SessionIdHeader:
+      name: X-Session-ID
+      in: header
+      description: Active session identifier
+      required: true
+      schema:
+        type: string
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
