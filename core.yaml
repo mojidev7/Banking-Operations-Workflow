@@ -1,0 +1,220 @@
+openapi: 3.0.3
+info:
+  title: Simple Banking API
+  description: API for basic banking operations
+  version: 1.0.0
+  contact:
+    name: API Support
+    url: https://api.example-bank.com/support
+    email: support@example-bank.com
+servers:
+  - url: https://api.example-bank.com
+    description: Production server
+  - url: https://sandbox.example-bank.com
+    description: Sandbox environment for testing
+
+tags:
+  - name: Authentication
+    description: Authentication operations
+  - name: Accounts
+    description: Account management operations
+  - name: Transfers
+    description: Fund transfer operations
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate a user
+      operationId: loginUser
+      parameters:
+        - name: username
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "jsmith"
+        - name: password
+          in: query
+          required: true
+          schema:
+            type: string
+            format: password
+          example: "secret"
+      responses:
+        '200':
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  expiresIn:
+                    type: integer
+                    example: 3600
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /accounts/{accountId}:
+    get:
+      tags:
+        - Accounts
+      summary: Get account details and balance
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "acc_12345"
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+          example: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        '200':
+          description: Account details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accountId:
+                    type: string
+                    example: "acc_12345"
+                  accountType:
+                    type: string
+                    enum: ["CHECKING", "SAVINGS", "BUSINESS"]
+                    example: "CHECKING"
+                  balance:
+                    type: number
+                    format: double
+                    example: 5000.75
+                  currency:
+                    type: string
+                    example: "USD"
+                  status:
+                    type: string
+                    enum: ["ACTIVE", "DORMANT", "CLOSED"]
+                    example: "ACTIVE"
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /transfers:
+    post:
+      tags:
+        - Transfers
+      summary: Transfer funds between accounts
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+          example: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - fromAccount
+                - toAccount
+                - amount
+              properties:
+                fromAccount:
+                  type: string
+                  example: "acc_12345"
+                toAccount:
+                  type: string
+                  example: "acc_67890"
+                amount:
+                  type: number
+                  format: double
+                  example: 500.00
+                reference:
+                  type: string
+                  example: "Rent payment"
+      responses:
+        '200':
+          description: Transfer successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: "tr_12345"
+                  status:
+                    type: string
+                    enum: ["COMPLETED", "PENDING", "FAILED"]
+                    example: "COMPLETED"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2023-10-15T14:30:00Z"
+                  fromAccount:
+                    type: string
+                    example: "acc_12345"
+                  toAccount:
+                    type: string
+                    example: "acc_67890"
+                  amount:
+                    type: number
+                    format: double
+                    example: 500.00
+                  reference:
+                    type: string
+                    example: "Rent payment"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '402':
+          description: Insufficient funds
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          example: "INSUFFICIENT_FUNDS"
+        message:
+          type: string
+          example: "The account has insufficient funds for this transfer"
+        requestId:
+          type: string
+          example: "req_abcdef123456"
+  
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
