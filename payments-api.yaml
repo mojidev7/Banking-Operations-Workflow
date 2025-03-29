@@ -1,0 +1,398 @@
+openapi: 3.0.3
+info:
+  title: Enterprise Banking Payments API
+  description: API for payment processing, transactions, and related operations
+  version: 1.3.0
+  contact:
+    name: API Support
+    url: https://developer.example-bank.com/support
+    email: api-support@example-bank.com
+servers:
+  - url: https://api.example-bank.com/payments/v1
+    description: Production server
+  - url: https://sandbox.example-bank.com/payments/v1
+    description: Sandbox environment for testing
+
+tags:
+  - name: Transactions
+    description: Payment transaction operations
+  - name: Status
+    description: Transaction status operations
+
+paths:
+  /transactions:
+    post:
+      tags:
+        - Transactions
+      summary: Initiate a financial transaction
+      operationId: initiateTransaction
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionIdHeader'
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - $ref: '#/components/parameters/ComplianceIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - transactionType
+                - sourceAccount
+                - paymentDetails
+              properties:
+                transactionType:
+                  type: string
+                  enum: ["PAYMENT", "TRANSFER", "WITHDRAWAL", "DEPOSIT"]
+                  example: "PAYMENT"
+                sourceAccount:
+                  $ref: '#/components/schemas/AccountReference'
+                destinationAccount:
+                  $ref: '#/components/schemas/AccountReference'
+                paymentDetails:
+                  $ref: '#/components/schemas/PaymentDetails'
+                fees:
+                  $ref: '#/components/schemas/FeeStructure'
+                exchangeRate:
+                  $ref: '#/components/schemas/ExchangeRate'
+                scheduling:
+                  $ref: '#/components/schemas/SchedulingInfo'
+      responses:
+        '200':
+          description: Transaction initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '202':
+          description: Transaction accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict with existing transaction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many requests
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Time in seconds to wait before retrying
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /transactions/{transactionId}:
+    get:
+      tags:
+        - Status
+      summary: Get status and details of a transaction
+      operationId: getTransactionStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          description: Unique transaction identifier
+          schema:
+            type: string
+          example: "tx_98765"
+        - $ref: '#/components/parameters/SessionIdHeader'
+      responses:
+        '200':
+          description: Transaction details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/TransactionResponse'
+                  - type: object
+                    properties:
+                      timeline:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TransactionEvent'
+                      settlementDate:
+                        type: string
+                        format: date-time
+                        example: "2023-10-16T10:30:00Z"
+        '404':
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    AccountReference:
+      type: object
+      required:
+        - accountId
+      properties:
+        accountId:
+          type: string
+          example: "acc_12345"
+        accountType:
+          type: string
+          enum: ["CHECKING", "SAVINGS", "BUSINESS", "INVESTMENT"]
+          example: "BUSINESS"
+        bankCode:
+          type: string
+          example: "EXBKUS33"
+        routingInformation:
+          type: object
+          additionalProperties: true
+
+    PaymentDetails:
+      type: object
+      required:
+        - amount
+        - currency
+      properties:
+        amount:
+          type: number
+          format: double
+          example: 10000.00
+        currency:
+          type: string
+          example: "USD"
+        paymentType:
+          type: string
+          enum: ["INTERNAL", "DOMESTIC", "INTERNATIONAL", "WIRE", "ACH"]
+          example: "WIRE"
+        reference:
+          type: string
+          example: "INV-2023-1234"
+        purpose:
+          type: string
+          example: "Payment for consulting services"
+        description:
+          type: string
+          example: "Q4 2023 strategic consulting services"
+
+    FeeStructure:
+      type: object
+      properties:
+        serviceFee:
+          type: number
+          format: double
+          example: 25.00
+        correspondentFee:
+          type: number
+          format: double
+          example: 15.00
+        taxAmount:
+          type: number
+          format: double
+          example: 3.00
+        totalFees:
+          type: number
+          format: double
+          example: 43.00
+        feeCurrency:
+          type: string
+          example: "USD"
+        feesPaidBy:
+          type: string
+          enum: ["SENDER", "RECEIVER", "SHARED"]
+          example: "SENDER"
+
+    ExchangeRate:
+      type: object
+      properties:
+        fromCurrency:
+          type: string
+          example: "USD"
+        toCurrency:
+          type: string
+          example: "EUR"
+        rate:
+          type: number
+          format: double
+          example: 0.93
+        inverseRate:
+          type: number
+          format: double
+          example: 1.075
+        rateType:
+          type: string
+          enum: ["SPOT", "FORWARD", "FIXED"]
+          example: "SPOT"
+        rateId:
+          type: string
+          example: "rate_12345"
+        expiresAt:
+          type: string
+          format: date-time
+          example: "2023-10-15T14:45:00Z"
+
+    SchedulingInfo:
+      type: object
+      properties:
+        isScheduled:
+          type: boolean
+          example: true
+        scheduledDate:
+          type: string
+          format: date-time
+          example: "2023-10-20T10:00:00Z"
+        recurrence:
+          type: object
+          properties:
+            frequency:
+              type: string
+              enum: ["ONCE", "DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "ANNUALLY"]
+              example: "MONTHLY"
+            interval:
+              type: integer
+              example: 1
+            endDate:
+              type: string
+              format: date
+              example: "2024-10-20"
+            endAfterOccurrences:
+              type: integer
+              example: 12
+
+    TransactionResponse:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          example: "tx_98765"
+        status:
+          type: string
+          enum: ["PENDING", "PROCESSING", "COMPLETED", "FAILED", "CANCELLED", "SCHEDULED"]
+          example: "PROCESSING"
+        amount:
+          type: number
+          format: double
+          example: 10000.00
+        currency:
+          type: string
+          example: "USD"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2023-10-15T14:30:00Z"
+        estimatedCompletionTime:
+          type: string
+          format: date-time
+          example: "2023-10-16T10:30:00Z"
+        receiptNumber:
+          type: string
+          example: "RCP-2023-98765"
+        reference:
+          type: string
+          example: "INV-2023-1234"
+        trackingInfo:
+          type: object
+          properties:
+            trackingNumber:
+              type: string
+              example: "TRCK987654321"
+            intermediaryStatus:
+              type: string
+              example: "In correspondent bank processing"
+
+    TransactionEvent:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: "2023-10-15T14:30:00Z"
+        status:
+          type: string
+          example: "INITIATED"
+        description:
+          type: string
+          example: "Transaction initiated by user"
+        location:
+          type: string
+          example: "Origin Bank"
+        metadata:
+          type: object
+          additionalProperties: true
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          example: "INSUFFICIENT_FUNDS"
+        message:
+          type: string
+          example: "Insufficient funds in source account"
+        details:
+          type: object
+          additionalProperties: true
+        requestId:
+          type: string
+          example: "req_abcdef123456"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2023-10-15T14:30:00Z"
+
+  parameters:
+    RequestIdHeader:
+      name: X-Request-ID
+      in: header
+      description: Unique identifier for request tracing
+      required: false
+      schema:
+        type: string
+
+    SessionIdHeader:
+      name: X-Session-ID
+      in: header
+      description: Active session identifier
+      required: true
+      schema:
+        type: string
+        
+    ComplianceIdHeader:
+      name: X-Compliance-ID
+      in: header
+      description: Compliance verification identifier
+      required: false
+      schema:
+        type: string
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
